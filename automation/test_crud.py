@@ -14,6 +14,9 @@ from pathlib import Path
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
 from openpyxl.drawing.image import Image as XLImage
+from selenium.webdriver.chrome.service import Service
+
+
 
 
 
@@ -27,7 +30,14 @@ options = webdriver.ChromeOptions()
 # Uncomment for headless mode:
 # options.add_argument("--headless")
 
-driver = webdriver.Chrome(options=options)
+chrome_binary = os.getenv("CHROME_BINARY")
+chromedriver_binary = os.getenv("CHROMEDRIVER_BINARY")
+
+if chrome_binary:
+    options.binary_location = chrome_binary
+
+service = Service(executable_path=chromedriver_binary) if chromedriver_binary else Service()
+driver = webdriver.Chrome(service=service, options=options)
 wait = WebDriverWait(driver, 10)
 
 
