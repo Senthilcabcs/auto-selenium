@@ -27,8 +27,13 @@ SCREENSHOT_DIR = REPORT_DIR / "screenshots"
 REPORT_PATH = REPORT_DIR / "crud_test_report.xlsx"
 
 options = webdriver.ChromeOptions()
-# Uncomment for headless mode:
-# options.add_argument("--headless")
+
+if os.getenv("CI", "").lower() == "true":
+    options.add_argument("--headless=new")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--window-size=1920,1080")
 
 chrome_binary = os.getenv("CHROME_BINARY")
 chromedriver_binary = os.getenv("CHROMEDRIVER_BINARY")
@@ -36,7 +41,7 @@ chromedriver_binary = os.getenv("CHROMEDRIVER_BINARY")
 if chrome_binary:
     options.binary_location = chrome_binary
 
-service = Service(executable_path=chromedriver_binary) if chromedriver_binary else Service()
+service = Service(executable_path=chromedriver_binary)
 driver = webdriver.Chrome(service=service, options=options)
 wait = WebDriverWait(driver, 10)
 
