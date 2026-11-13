@@ -122,3 +122,80 @@ jobs:
           path: automation/reports/
           if-no-files-found: warn
           retention-days: 14
+  deploy-demo-app:
+    name: Deploy demo-app to XAMPP
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, windows, x64]
+
+    concurrency:
+      group: demo-app-deployment
+      cancel-in-progress: false
+
+    steps:
+      - name: Check out project
+        uses: actions/checkout@v7
+
+      - name: Copy project to XAMPP
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $source = $env:GITHUB_WORKSPACE
+          $target = 'D:\xampp\htdocs\demo-app'
+
+          if (-not (Test-Path (Join-Path $source 'artisan'))) {
+            throw "Laravel project root not found in: $source"
+          }
+
+          if (-not (Test-Path (Join-Path $target '.env'))) {
+            throw "Target .env not found. Create $target\.env first."
+          }
+
+          robocopy $source $target /E /R:2 /W:2 `
+            /XF .env `
+            /XD .git .github vendor node_modules storage automation tests
+
+          $copyExitCode = $LASTEXITCODE
+
+          # Robocopy codes 0–7 are success; 8+ is failure.
+          if ($copyExitCode -ge 8) {
+            throw "Robocopy failed with exit code $copyExitCode"
+          }
+
+      - name: Install PHP dependencies
+        shell: powershell
+        working-directory: D:\xampp\htdocs\demo-app
+        run: |
+          composer install --no-interaction --prefer-dist
+          if ($LASTEXITCODE -ne 0) {
+            throw "composer install failed"
+          }
+
+      - name: Build frontend
+        shell: powershell
+        working-directory: D:\xampp\htdocs\demo-app
+        run: |
+          npm ci
+          if ($LASTEXITCODE -ne 0) {
+            throw "npm ci failed"
+          }
+
+          npm run build
+          if ($LASTEXITCODE -ne 0) {
+            throw "npm run build failed"
+          }
+
+      - name: Run database migrations and clear caches
+        shell: powershell
+        working-directory: D:\xampp\htdocs\demo-app
+        run: |
+          php artisan migrate --force
+          if ($LASTEXITCODE -ne 0) {
+            throw "Laravel migrations failed"
+          }
+
+          php artisan optimize:clear
+          if ($LASTEXITCODE -ne 0) {
+            throw "Laravel cache clearing failed"
+          }          
